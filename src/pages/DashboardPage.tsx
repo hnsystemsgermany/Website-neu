@@ -4,7 +4,7 @@ import { useMode } from "@/contexts/ModeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Activity, Gauge, AlertTriangle, MapPin, Download, Clock,
-  TrendingUp, Zap, Route, ChevronRight
+  TrendingUp, Zap, Route, ChevronRight, MountainSnow, MapPinned, CableCar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,6 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Mock route data (lat/lng pairs for a route in Munich area)
 const routePoints: [number, number][] = [
   [48.1351, 11.5820],
   [48.1360, 11.5840],
@@ -45,14 +44,70 @@ const shockPoints: [number, number][] = [
   [48.1455, 11.5960],
 ];
 
-// Mock speed data over time
+const skiRoutePoints: [number, number][] = [
+  [47.4686, 11.0600],
+  [47.4658, 11.0645],
+  [47.4629, 11.0688],
+  [47.4598, 11.0725],
+  [47.4566, 11.0755],
+  [47.4534, 11.0782],
+  [47.4502, 11.0806],
+  [47.4474, 11.0834],
+  [47.4446, 11.0870],
+];
+
+const skiBrakePoints: [number, number][] = [
+  [47.4629, 11.0688],
+  [47.4566, 11.0755],
+  [47.4502, 11.0806],
+];
+
+const skiShockPoints: [number, number][] = [
+  [47.4534, 11.0782],
+];
+
+const motorcycleRecommendations = [
+  {
+    name: "Schwarzwaldhochstrasse",
+    detail: "Baden-Baden bis Freudenstadt",
+    meta: "61 km - viele Kurven - Aussichtspunkte",
+  },
+  {
+    name: "Albtrauf-Runde",
+    detail: "Balingen, Lochenpass und Schwaebische Alb",
+    meta: "94 km - sportlich - gute Pausenstopps",
+  },
+  {
+    name: "Bodensee-Panorama",
+    detail: "Ueberlingen, Meersburg und Hoeri",
+    meta: "78 km - entspannt - Seeblick",
+  },
+];
+
+const skiRecommendations = [
+  {
+    name: "Ski Arlberg",
+    detail: "St. Anton, Lech und Zuers",
+    meta: "305 Pisten-km - viele rote Abfahrten",
+  },
+  {
+    name: "KitzSki",
+    detail: "Kitzbuehel und Kirchberg",
+    meta: "233 Pisten-km - lange Talabfahrten",
+  },
+  {
+    name: "Serfaus-Fiss-Ladis",
+    detail: "Familienfreundlich mit breiten Pisten",
+    meta: "214 Pisten-km - sehr gute Liftstruktur",
+  },
+];
+
 const speedData = Array.from({ length: 30 }, (_, i) => ({
   time: `${i}:00`,
   speed: Math.max(0, 40 + Math.sin(i * 0.5) * 30 + (Math.random() - 0.5) * 15),
   accel: (Math.random() - 0.5) * 4,
 }));
 
-// Mock timeline events (translated via key)
 const timelineEvents = [
   { time: "14:02", type: "start", labelKey: "dash.event.start" },
   { time: "14:08", type: "brake", labelKey: "dash.event.brake1" },
@@ -62,51 +117,94 @@ const timelineEvents = [
   { time: "14:35", type: "end", labelKey: "dash.event.end" },
 ];
 
-function LeafletMap() {
+function addSkiPisteMap(map: L.Map) {
+  map.setView([47.4565, 11.0740], 14);
+
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    attribution: "Tiles Esri",
+    maxZoom: 18,
+  }).addTo(map);
+
+  skiBrakePoints.forEach((p) => {
+    L.circleMarker(p, {
+      radius: 8, fillColor: "#f59e0b", color: "#f59e0b", fillOpacity: 0.85, weight: 2,
+    }).addTo(map).bindPopup("Bremsung erkannt");
+  });
+
+  skiShockPoints.forEach((p) => {
+    L.circleMarker(p, {
+      radius: 10, fillColor: "#ef4444", color: "#ef4444", fillOpacity: 0.9, weight: 2,
+    }).addTo(map).bindPopup("Erschuetterung erkannt");
+  });
+
+  L.circleMarker(skiRoutePoints[0], {
+    radius: 8, fillColor: "#22c55e", color: "#16a34a", fillOpacity: 0.95, weight: 2,
+  }).addTo(map).bindPopup("Start");
+
+  L.circleMarker(skiRoutePoints[skiRoutePoints.length - 1], {
+    radius: 8, fillColor: "#3b82f6", color: "#2563eb", fillOpacity: 0.95, weight: 2,
+  }).addTo(map).bindPopup("Ziel");
+
+  L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
+}
+
+function addMotorcycleMap(map: L.Map) {
+  map.setView([48.1440, 11.5940], 14);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "OpenStreetMap",
+  }).addTo(map);
+
+  L.polyline(routePoints, { color: "hsl(0,85%,55%)", weight: 4, opacity: 0.8 }).addTo(map);
+
+  brakePoints.forEach((p) => {
+    L.circleMarker(p, {
+      radius: 8, fillColor: "#f59e0b", color: "#f59e0b", fillOpacity: 0.8, weight: 2,
+    }).addTo(map).bindPopup("Bremsung erkannt");
+  });
+
+  shockPoints.forEach((p) => {
+    L.circleMarker(p, {
+      radius: 10, fillColor: "#ef4444", color: "#ef4444", fillOpacity: 0.9, weight: 2,
+    }).addTo(map).bindPopup("Erschuetterung erkannt");
+  });
+
+  L.circleMarker(routePoints[0], {
+    radius: 8, fillColor: "#22c55e", color: "#22c55e", fillOpacity: 0.9, weight: 2,
+  }).addTo(map).bindPopup("Start");
+
+  L.circleMarker(routePoints[routePoints.length - 1], {
+    radius: 8, fillColor: "#3b82f6", color: "#3b82f6", fillOpacity: 0.9, weight: 2,
+  }).addTo(map).bindPopup("Ziel");
+}
+
+function LeafletMap({ variant }: { variant: "motorcycle" | "ski" }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
-    const map = L.map(mapRef.current).setView([48.1440, 11.5940], 14);
+    const map = L.map(mapRef.current, variant === "ski" ? {
+      minZoom: 11,
+      maxZoom: 18,
+      zoomControl: true,
+      attributionControl: false,
+    } : {});
+
     mapInstance.current = map;
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© OpenStreetMap',
-    }).addTo(map);
-
-    // Route polyline
-    L.polyline(routePoints, { color: "hsl(0,85%,55%)", weight: 4, opacity: 0.8 }).addTo(map);
-
-    // Brake markers
-    brakePoints.forEach((p) => {
-      L.circleMarker(p, {
-        radius: 8, fillColor: "#f59e0b", color: "#f59e0b", fillOpacity: 0.8, weight: 2,
-      }).addTo(map).bindPopup("🛑 Bremsung erkannt");
-    });
-
-    // Shock markers
-    shockPoints.forEach((p) => {
-      L.circleMarker(p, {
-        radius: 10, fillColor: "#ef4444", color: "#ef4444", fillOpacity: 0.9, weight: 2,
-      }).addTo(map).bindPopup("⚠️ Erschütterung erkannt");
-    });
-
-    // Start/End markers
-    L.circleMarker(routePoints[0], {
-      radius: 8, fillColor: "#22c55e", color: "#22c55e", fillOpacity: 0.9, weight: 2,
-    }).addTo(map).bindPopup("🟢 Start");
-
-    L.circleMarker(routePoints[routePoints.length - 1], {
-      radius: 8, fillColor: "#3b82f6", color: "#3b82f6", fillOpacity: 0.9, weight: 2,
-    }).addTo(map).bindPopup("🏁 Ziel");
+    if (variant === "ski") {
+      addSkiPisteMap(map);
+    } else {
+      addMotorcycleMap(map);
+    }
 
     return () => {
       map.remove();
       mapInstance.current = null;
     };
-  }, []);
+  }, [variant]);
 
   return <div ref={mapRef} className="w-full h-full rounded-lg" />;
 }
@@ -135,6 +233,7 @@ export default function DashboardPage() {
   const { t } = useLanguage();
   const isMotorcycle = mode === "motorcycle";
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const recommendations = isMotorcycle ? motorcycleRecommendations : skiRecommendations;
 
   if (!isLoggedIn) {
     return (
@@ -163,7 +262,6 @@ export default function DashboardPage() {
   return (
     <div className="py-20">
       <div className="container mx-auto px-4">
-        {/* Header */}
         <motion.div className="mb-8" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -171,7 +269,7 @@ export default function DashboardPage() {
                 {t("dash.title1")} <span className="text-gradient-accent">{t("dash.title2")}</span>
               </h1>
               <p className="text-muted-foreground text-sm mt-1">
-                {isMotorcycle ? t("landing.badge.motorcycle") : t("landing.badge.ski")} · {t("dash.lastTrip")}
+                {isMotorcycle ? t("landing.badge.motorcycle") : t("landing.badge.ski")} - {t("dash.lastTrip")}
               </p>
             </div>
             <Button
@@ -184,12 +282,11 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: Gauge, label: t("dash.stat.speed"), value: "47 km/h", sub: t("dash.stat.speedSub") },
-            { icon: Route, label: t("dash.stat.distance"), value: "23.4 km", sub: t("dash.stat.distanceSub") },
-            { icon: Zap, label: t("dash.stat.brakes"), value: "12", sub: t("dash.stat.brakesSub") },
+            { icon: Gauge, label: t("dash.stat.speed"), value: isMotorcycle ? "47 km/h" : "38 km/h", sub: t("dash.stat.speedSub") },
+            { icon: Route, label: t("dash.stat.distance"), value: isMotorcycle ? "23.4 km" : "12.8 km", sub: t("dash.stat.distanceSub") },
+            { icon: Zap, label: t("dash.stat.brakes"), value: isMotorcycle ? "12" : "8", sub: t("dash.stat.brakesSub") },
             { icon: AlertTriangle, label: t("dash.stat.shocks"), value: "1", sub: t("dash.stat.shocksSub") },
           ].map((stat, i) => (
             <motion.div
@@ -212,9 +309,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Map + Speed Chart */}
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          {/* Map */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -223,17 +318,21 @@ export default function DashboardPage() {
             <Card className="border-border bg-card-gradient h-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  {t("dash.map")}
+                  {isMotorcycle ? (
+                    <MapPin className="h-4 w-4 text-primary" />
+                  ) : (
+                    <MountainSnow className="h-4 w-4 text-primary" />
+                  )}
+                  {isMotorcycle ? t("dash.map") : "Skigebiet Satellitenkarte"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="h-[400px] rounded-lg overflow-hidden">
-                  <LeafletMap />
+                  <LeafletMap variant={mode} />
                 </div>
-                <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
+                <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-500" /> {t("dash.legend.start")}</span>
-                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-500" /> {t("dash.legend.brake")}</span>
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-yellow-500" /> {isMotorcycle ? t("dash.legend.brake") : "Pisten"}</span>
                   <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" /> {t("dash.legend.shock")}</span>
                   <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" /> {t("dash.legend.end")}</span>
                 </div>
@@ -241,7 +340,6 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Speed Chart */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -291,16 +389,16 @@ export default function DashboardPage() {
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>{t("dash.brake.light")}</span>
-                      <span>9</span>
+                      <span>{isMotorcycle ? 9 : 6}</span>
                     </div>
-                    <Progress value={75} className="h-2" />
+                    <Progress value={isMotorcycle ? 75 : 60} className="h-2" />
                   </div>
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>{t("dash.brake.strong")}</span>
-                      <span>3</span>
+                      <span>{isMotorcycle ? 3 : 2}</span>
                     </div>
-                    <Progress value={25} className="h-2" />
+                    <Progress value={isMotorcycle ? 25 : 20} className="h-2" />
                   </div>
                   <div>
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
@@ -315,7 +413,48 @@ export default function DashboardPage() {
           </motion.div>
         </div>
 
-        {/* Timeline */}
+        <motion.div
+          className="mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+        >
+          <Card className="border-border bg-card-gradient">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                {isMotorcycle ? (
+                  <MapPinned className="h-4 w-4 text-primary" />
+                ) : (
+                  <MountainSnow className="h-4 w-4 text-primary" />
+                )}
+                {isMotorcycle ? "Empfohlene Motorradrouten" : "Empfohlene Skigebiete"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-3">
+                {recommendations.map((item) => (
+                  <div key={item.name} className="rounded-lg bg-muted/50 p-4 border border-border/70">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        {isMotorcycle ? (
+                          <Route className="h-4 w-4 text-primary" />
+                        ) : (
+                          <CableCar className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-heading font-bold normal-case tracking-normal">{item.name}</h3>
+                        <p className="text-xs text-muted-foreground mt-1">{item.detail}</p>
+                        <p className="text-xs text-primary mt-2">{item.meta}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
