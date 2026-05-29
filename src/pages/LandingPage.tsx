@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import heroMotorcycle from "@/assets/hero-motorcycle.jpg";
 import heroSki from "@/assets/hero-ski.jpg";
+import productVideo from "../../hn-product-video 5.mp4";
 
 export default function LandingPage() {
   const { mode } = useMode();
@@ -27,8 +28,8 @@ export default function LandingPage() {
   ];
 
   const reviews = [
-    { name: "Markus K.", text: "Seit ich das SmartHelm Rücklicht nutze, fühle ich mich auf dem Motorrad deutlich sicherer.", rating: 5 },
-    { name: "Lisa M.", text: "Perfekt für die Piste! Die Erschütterungserkennung hat mich nach einem Sturz sofort alarmiert.", rating: 5 },
+    { name: "Markus K.", text: "Seit ich das SmartHelm RÃ¼cklicht nutze, fÃ¼hle ich mich auf dem Motorrad deutlich sicherer.", rating: 5 },
+    { name: "Lisa M.", text: "Perfekt fÃ¼r die Piste! Die ErschÃ¼tterungserkennung hat mich nach einem Sturz sofort alarmiert.", rating: 5 },
     { name: "Thomas R.", text: "Super einfache Montage und die App zeigt mir genau, wo ich gebremst habe. Klasse Produkt!", rating: 4 },
   ];
 
@@ -136,6 +137,27 @@ export default function LandingPage() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <motion.div
+            className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-border bg-card-gradient"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <video
+              className="aspect-video w-full bg-black object-cover"
+              src={productVideo}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+            />
+          </motion.div>
         </div>
       </section>
 
