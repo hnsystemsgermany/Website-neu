@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useMode } from "@/contexts/ModeContext";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Bike, Mountain, Menu, X, User, UserPlus, ShoppingCart } from "lucide-react";
+import { Bike, CheckCircle, Loader2, Mail, Mountain, Menu, X, User, UserPlus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { motion, AnimatePresence } from "framer-motion";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { requestRegistrationCode, verifyRegistrationCode } from "@/lib/registration";
 
 const navKeys = [
   { to: "/", key: "nav.home" },
@@ -21,9 +25,76 @@ const navKeys = [
 export default function Header() {
   const { mode, setMode } = useMode();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerStep, setRegisterStep] = useState<"email" | "code" | "done">("email");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [registrationMessage, setRegistrationMessage] = useState("");
+  const [registrationError, setRegistrationError] = useState("");
+  const [registrationLoading, setRegistrationLoading] = useState(false);
   const location = useLocation();
   const { totalCount, setOpen } = useCart();
   const { t } = useLanguage();
+
+  const openRegisterDialog = () => {
+    setRegisterOpen(true);
+    setMenuOpen(false);
+  };
+
+  const resetRegistration = () => {
+    setRegisterStep("email");
+    setFullName("");
+    setEmail("");
+    setCode("");
+    setRegistrationMessage("");
+    setRegistrationError("");
+    setRegistrationLoading(false);
+  };
+
+  const handleSendCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setRegistrationError("");
+    setRegistrationMessage("");
+
+    if (!fullName.trim() || !email.trim()) {
+      setRegistrationError("Bitte gib deinen Namen und deine E-Mail-Adresse ein.");
+      return;
+    }
+
+    setRegistrationLoading(true);
+    try {
+      await requestRegistrationCode(email, fullName);
+      setRegisterStep("code");
+      setRegistrationMessage("Der Bestaetigungscode wurde per E-Mail verschickt.");
+    } catch (error) {
+      setRegistrationError(error instanceof Error ? error.message : "Der Code konnte nicht gesendet werden.");
+    } finally {
+      setRegistrationLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setRegistrationError("");
+    setRegistrationMessage("");
+
+    if (!code.trim()) {
+      setRegistrationError("Bitte gib den Bestaetigungscode ein.");
+      return;
+    }
+
+    setRegistrationLoading(true);
+    try {
+      await verifyRegistrationCode(email, fullName, code);
+      setRegisterStep("done");
+      setRegistrationMessage("Deine E-Mail wurde bestaetigt und dein Account wurde gespeichert.");
+    } catch (error) {
+      setRegistrationError(error instanceof Error ? error.message : "Der Code konnte nicht bestaetigt werden.");
+    } finally {
+      setRegistrationLoading(false);
+    }
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -89,7 +160,11 @@ export default function Header() {
             <User className="h-4 w-4 mr-1.5" />
             {t("auth.login")}
           </Button>
-          <Button size="sm" className="hidden sm:flex bg-primary hover:bg-primary/90 text-primary-foreground glow-red">
+          <Button
+            size="sm"
+            onClick={openRegisterDialog}
+            className="hidden sm:flex bg-primary hover:bg-primary/90 text-primary-foreground glow-red"
+          >
             <UserPlus className="h-4 w-4 mr-1.5" />
             {t("auth.register")}
           </Button>
@@ -162,7 +237,11 @@ export default function Header() {
                 <Button variant="ghost" size="sm" className="flex-1 text-muted-foreground">
                   <User className="h-4 w-4 mr-1.5" /> {t("auth.login")}
                 </Button>
-                <Button size="sm" className="flex-1 bg-primary text-primary-foreground">
+                <Button
+                  size="sm"
+                  onClick={openRegisterDialog}
+                  className="flex-1 bg-primary text-primary-foreground"
+                >
                   <UserPlus className="h-4 w-4 mr-1.5" /> {t("auth.register")}
                 </Button>
               </div>
@@ -170,6 +249,112 @@ export default function Header() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Dialog
+        open={registerOpen}
+        onOpenChange={(open) => {
+          setRegisterOpen(open);
+          if (!open) resetRegistration();
+        }}
+      >
+        <DialogContent className="max-w-md border-border bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl">Registrieren</DialogTitle>
+            <DialogDescription>
+              {registerStep === "email"
+                ? "Du erhaeltst einen Bestaetigungscode per E-Mail."
+                : registerStep === "code"
+                  ? "Gib den Code aus deiner E-Mail ein, um deinen Account zu bestaetigen."
+                  : "Deine Registrierung ist abgeschlossen."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {registerStep === "email" && (
+            <form onSubmit={handleSendCode} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="register-full-name">Name</Label>
+                <Input
+                  id="register-full-name"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder="Max Mustermann"
+                  autoComplete="name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-email">E-Mail-Adresse</Label>
+                <Input
+                  id="register-email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="name@example.com"
+                  autoComplete="email"
+                />
+              </div>
+              <Button type="submit" className="w-full bg-primary text-primary-foreground" disabled={registrationLoading}>
+                {registrationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                Code senden
+              </Button>
+            </form>
+          )}
+
+          {registerStep === "code" && (
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+              <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                Der Code wurde an <span className="font-medium text-foreground">{email}</span> gesendet.
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-code">Bestaetigungscode</Label>
+                <Input
+                  id="register-code"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="123456"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  className="text-center font-heading text-xl tracking-[0.35em]"
+                />
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setRegisterStep("email")}>
+                  E-Mail aendern
+                </Button>
+                <Button type="submit" className="flex-1 bg-primary text-primary-foreground" disabled={registrationLoading}>
+                  {registrationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                  Bestaetigen
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {registerStep === "done" && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 rounded-md border border-primary/30 bg-primary/10 p-4 text-sm">
+                <CheckCircle className="mt-0.5 h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-medium text-foreground">E-Mail bestaetigt</p>
+                  <p className="text-muted-foreground">{registrationMessage}</p>
+                </div>
+              </div>
+              <Button className="w-full" onClick={() => setRegisterOpen(false)}>
+                Schliessen
+              </Button>
+            </div>
+          )}
+
+          {registrationMessage && registerStep !== "done" && (
+            <p className="rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-sm text-foreground">
+              {registrationMessage}
+            </p>
+          )}
+          {registrationError && (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {registrationError}
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
